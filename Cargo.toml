@@ -1,0 +1,13 @@
+[package]
+name = "nessus-parser"
+version = "0.1.0"
+edition = "2021"
+
+
+[dependencies]
+clap = { version = "4.1.4", features = ["derive"] }
+color-eyre = "0.6.2"
+hard-xml = "1.21.0"
+rayon = "1.6.1"
+serde = { version = "1.0.152", features = ["derive"] }
+serde_json = "1.0.91"
