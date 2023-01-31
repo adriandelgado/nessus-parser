@@ -63,10 +63,12 @@ fn main() -> Result<()> {
 
             let (r1, r2) = rayon::join(
                 || -> Result<Vec<IpAddr>> {
+                    let relevant_preferences = nessus_data.relevant_preferences();
+
                     {
                         let mut stdout_buf = BufWriter::new(stdout().lock());
 
-                        for (name, value) in nessus_data.relevant_preferences() {
+                        for (name, value) in relevant_preferences {
                             writeln!(&mut stdout_buf, "{name}: {value}")?;
                         }
                     }
