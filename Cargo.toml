@@ -3,6 +3,8 @@ name = "nessus-parser"
 version = "0.1.0"
 edition = "2021"
 
+[profile.release]
+strip = true # Automatically strip symbols from the binary.
 
 [dependencies]
 clap = { version = "4.1.4", features = ["derive"] }
