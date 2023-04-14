@@ -1,6 +1,17 @@
 use clap::Parser;
 use color_eyre::Result;
 
+macro_rules! try_wrap_option {
+    ($expr:expr $(,)?) => {
+        match $expr {
+            Ok(val) => val,
+            Err(err) => {
+                return Some(Err(From::from(err)));
+            }
+        }
+    };
+}
+
 pub mod cmd;
 pub mod list;
 pub mod models;

@@ -1,21 +1,24 @@
 use crate::{models::Preference, utils};
-use color_eyre::Result;
+use color_eyre::{eyre::Context, Result};
 use rayon::prelude::*;
 use std::{
-    collections::{BTreeMap, BTreeSet},
-    fs,
+    collections,
     io::{stdout, BufWriter, Write},
     path::PathBuf,
     sync::{Arc, Mutex},
 };
 
+type PortSet = collections::BTreeSet<u16>;
+type PortsMap<T> = collections::BTreeMap<T, PortSet>;
+
 pub fn print_ips<const PRINT_ONLY_EXPLOITABLE: bool>(input: PathBuf) -> Result<()> {
     let files = utils::NessusFiles::new(input)?;
 
-    let ips_ports = Arc::new(Mutex::new(BTreeMap::<_, BTreeSet<_>>::new()));
+    let ips_ports = Arc::new(Mutex::<PortsMap<_>>::default());
 
     files.par_bridge().try_for_each(|file_name| -> Result<()> {
-        let nessus_str = fs::read_to_string(file_name?)?;
+        let file_name = file_name.wrap_err("can't access `file_name`")?;
+        let nessus_str = std::fs::read_to_string(file_name)?;
 
         let nessus_data = utils::get_nessus_data(&nessus_str)?;
 
@@ -37,7 +40,7 @@ pub fn print_ips<const PRINT_ONLY_EXPLOITABLE: bool>(input: PathBuf) -> Result<(
         }
 
         nessus_data.report.report_hosts.par_iter().for_each(|host| {
-            let mut ports: BTreeSet<_> = host
+            let mut ports: PortSet = host
                 .report_items
                 .iter()
                 .filter_map(|report| {

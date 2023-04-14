@@ -27,6 +27,10 @@ pub enum Commands {
         input: PathBuf,
 
         /// Host to summarize
-        host: IpAddr,
+        #[arg(short, long)]
+        host: Option<IpAddr>,
+        // /// Only show IPs with an exploit available
+        // #[arg(short = 'x', long)]
+        // exploitable: bool,
     },
 }

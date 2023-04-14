@@ -1,7 +1,8 @@
 use color_eyre::eyre;
 use hard_xml::XmlRead;
 use macaddr::MacAddr;
-use std::{borrow::Cow, net::IpAddr, str::FromStr};
+use ordered_float::OrderedFloat;
+use std::{borrow::Cow, cmp::Reverse, collections::BTreeSet, net::IpAddr, str::FromStr};
 use tabled::Tabled;
 
 #[derive(XmlRead)]
@@ -32,8 +33,6 @@ impl<'a> NessusClientDataV2<'a> {
 struct Policy<'a> {
     #[xml(child = "Preferences")]
     preferences: Preferences<'a>,
-    // #[xml(flatten_text = "policyName")]
-    // policy_name: Cow<'a, str>,
 }
 
 #[derive(XmlRead)]
@@ -145,31 +144,11 @@ impl<'a> ReportHost<'a> {
                 (macs, operating_system.or(os), traceroute)
             },
             || {
-                let mut vulns: Vec<_> = self
-                    .report_items
+                self.report_items
                     .iter()
                     .filter(|report| report.risk_factor != RiskFactor::None)
                     .map(Vulnerability::from)
-                    .collect();
-
-                vulns.sort_by_key(|v| v.name);
-
-                // vulns.sort_by_key(|v| v.severity);
-
-                vulns.sort_by(|a, b| {
-                    match b
-                        .score
-                        .unwrap_or_default()
-                        .total_cmp(&a.score.unwrap_or_default())
-                    {
-                        std::cmp::Ordering::Equal => {}
-                        ord => return ord,
-                    }
-
-                    b.severity.cmp(&a.severity)
-                });
-
-                vulns
+                    .collect()
             },
         );
 
@@ -183,61 +162,106 @@ impl<'a> ReportHost<'a> {
 }
 
 pub struct Summary<'a> {
-    macs: Option<Vec<MacAddr>>,
-    os: Option<&'a str>,
-    pub vulns: Vec<Vulnerability<'a>>,
-    traceroute: Vec<Option<IpAddr>>,
+    pub macs: Option<Vec<MacAddr>>,
+    pub os: Option<&'a str>,
+    pub vulns: BTreeSet<Vulnerability>,
+    pub traceroute: Vec<Option<IpAddr>>,
 }
 
-pub struct Vulnerability<'a> {
-    score: Option<f64>,
+#[derive(PartialEq, Eq, PartialOrd, Ord)]
+pub struct Vulnerability {
     severity: RiskFactor,
-    name: &'a str,
+    score: Reverse<OrderedFloat<f64>>,
+    name: Box<str>,
     port: u16,
-    exploit_available: Option<bool>,
+    exploit_available: bool,
 }
 
-impl Tabled for Vulnerability<'_> {
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub struct VulnerabilityNoPort {
+    severity: RiskFactor,
+    score: Reverse<OrderedFloat<f64>>,
+    name: Box<str>,
+    exploit_available: bool,
+}
+
+impl From<&ReportItem<'_>> for VulnerabilityNoPort {
+    fn from(value: &ReportItem) -> Self {
+        Self {
+            name: value.plugin_name_attr.clone().into(),
+            severity: value.risk_factor,
+            score: Reverse(
+                value
+                    .cvss3_base_score
+                    .or(value.cvss_base_score)
+                    .unwrap_or(0_f64)
+                    .into(),
+            ),
+            exploit_available: value.exploit_available.unwrap_or(false),
+        }
+    }
+}
+
+impl Tabled for Vulnerability {
     const LENGTH: usize = 5;
 
     fn fields(&self) -> Vec<Cow<str>> {
-        {
-            vec![
-                self.score
-                    .map_or(Cow::Borrowed("--"), |s| s.to_string().into()),
-                Cow::Borrowed(self.severity.as_str()),
-                Cow::Borrowed(self.name),
-                Cow::Owned(self.port.to_string()),
-                Cow::Borrowed(if self.exploit_available == Some(true) {
-                    "■"
-                } else {
-                    ""
-                }),
-            ]
-        }
+        vec![
+            Cow::Owned(self.score.0.to_string()),
+            Cow::Borrowed(self.severity.as_str()),
+            Cow::Owned(self.name.to_string()),
+            Cow::Owned(self.port.to_string()),
+            Cow::Borrowed(if self.exploit_available { "■" } else { "" }),
+        ]
     }
 
     fn headers() -> Vec<Cow<'static, str>> {
-        {
-            vec![
-                Cow::Borrowed("Score"),
-                Cow::Borrowed("Severity"),
-                Cow::Borrowed("Name"),
-                Cow::Borrowed("Port"),
-                Cow::Borrowed("Exploit Available"),
-            ]
-        }
+        vec![
+            Cow::Borrowed("Score"),
+            Cow::Borrowed("Severity"),
+            Cow::Borrowed("Name"),
+            Cow::Borrowed("Port"),
+            Cow::Borrowed("Explt. Avail."),
+        ]
     }
 }
 
-impl<'a> From<&'a ReportItem<'_>> for Vulnerability<'a> {
-    fn from(value: &'a ReportItem) -> Vulnerability<'a> {
-        Vulnerability {
+impl Tabled for VulnerabilityNoPort {
+    const LENGTH: usize = 4;
+
+    fn fields(&self) -> Vec<Cow<str>> {
+        vec![
+            Cow::Owned(self.score.0.to_string()),
+            Cow::Borrowed(self.severity.as_str()),
+            Cow::Owned(self.name.to_string()),
+            Cow::Borrowed(if self.exploit_available { "■" } else { "" }),
+        ]
+    }
+
+    fn headers() -> Vec<Cow<'static, str>> {
+        vec![
+            Cow::Borrowed("Score"),
+            Cow::Borrowed("Severity"),
+            Cow::Borrowed("Name"),
+            Cow::Borrowed("Explt. Avail."),
+        ]
+    }
+}
+
+impl From<&ReportItem<'_>> for Vulnerability {
+    fn from(value: &ReportItem) -> Self {
+        Self {
             port: value.port,
-            name: &value.plugin_name_attr,
+            name: value.plugin_name_attr.clone().into(),
             severity: value.risk_factor,
-            score: value.cvss3_base_score.or(value.cvss_base_score),
-            exploit_available: value.exploit_available,
+            score: Reverse(
+                value
+                    .cvss3_base_score
+                    .or(value.cvss_base_score)
+                    .unwrap_or(0_f64)
+                    .into(),
+            ),
+            exploit_available: value.exploit_available.unwrap_or(false),
         }
     }
 }
@@ -273,7 +297,7 @@ pub struct ReportItem<'a> {
     // #[xml(flatten_text = "plugin_type")]
     // plugin_type: Cow<'a, str>,
     #[xml(flatten_text = "risk_factor")]
-    risk_factor: RiskFactor,
+    pub risk_factor: RiskFactor,
     // #[xml(flatten_text = "script_version")]
     // script_version: Cow<'a, str>,
     // #[xml(flatten_text = "solution")]
@@ -406,13 +430,13 @@ pub struct ReportItem<'a> {
     // icsa: Option<Cow<'a, str>>,
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-enum RiskFactor {
-    None,
-    Low,
-    Medium,
-    High,
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum RiskFactor {
     Critical,
+    High,
+    Medium,
+    Low,
+    None,
 }
 
 impl FromStr for RiskFactor {

@@ -1,10 +1,7 @@
 use std::{fs, path::PathBuf};
 
 use crate::models::NessusClientDataV2;
-use color_eyre::{
-    eyre::{eyre, WrapErr},
-    Result,
-};
+use color_eyre::{eyre::eyre, Result};
 use hard_xml::{XmlRead, XmlReader};
 
 pub enum NessusFiles {
@@ -35,17 +32,11 @@ impl Iterator for NessusFiles {
             NessusFiles::File(file) => file.take().map(Ok),
             NessusFiles::Dir(dirs) => {
                 for entry in dirs {
-                    let entry = match entry {
-                        Ok(entry) => entry,
-                        Err(e) => return Some(Err(e).wrap_err("can't access `DirEntry`")),
-                    };
+                    let entry = try_wrap_option!(entry);
 
                     let path = entry.path();
 
-                    let file_type = match entry.file_type() {
-                        Ok(file_type) => file_type,
-                        Err(e) => return Some(Err(e).wrap_err("can't access `FileType`")),
-                    };
+                    let file_type = try_wrap_option!(entry.file_type());
 
                     if file_type.is_file() && path.extension() == Some("nessus".as_ref()) {
                         return Some(Ok(path));
