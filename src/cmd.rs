@@ -1,15 +1,32 @@
-use clap::Parser;
-use std::path::PathBuf;
+use clap::{Parser, Subcommand};
+use std::{net::IpAddr, path::PathBuf};
 
 /// Program to parse `.nessus` info
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
-pub struct Args {
-    /// Input file to parse or directory with '.nessus' files
-    #[arg(short, long)]
-    pub input: PathBuf,
+#[command(
+    help_template = "{before-help}{about-with-newline}\n{usage-heading} {usage}\n\n{all-args}{after-help}\n\n{author-with-newline}"
+)]
+pub struct Cli {
+    #[command(subcommand)]
+    pub command: Commands,
+}
 
-    /// Write a JSON version of the file(s)
-    #[arg(short = 'o', long)]
-    pub json: bool,
+#[derive(Debug, Subcommand)]
+pub enum Commands {
+    List {
+        /// Input file to parse or directory with '.nessus' files
+        input: PathBuf,
+
+        /// Only show IPs with an exploit available
+        #[arg(short = 'x', long)]
+        exploitable: bool,
+    },
+    Summary {
+        /// Input file to parse or directory with '.nessus' files
+        input: PathBuf,
+
+        /// Host to summarize
+        host: IpAddr,
+    },
 }
