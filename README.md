@@ -1,7 +1,7 @@
 # Nessus Parser
 
-[![Crates.io](https://img.shields.io/crates/v/nessus_parser.svg)](https://crates.io/crates/nessus_parser)
-[![Docs.rs](https://docs.rs/nessus_parser/badge.svg)](https://docs.rs/nessus_parser)
+[![Crates.io](https://img.shields.io/crates/v/nessus-parser.svg)](https://crates.io/crates/nessus-parser)
+[![Docs.rs](https://docs.rs/nessus-parser/badge.svg)](https://docs.rs/nessus-parser)
 [![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg)](LICENSE)
 
 A parser for `.nessus` (v2) XML reports.
