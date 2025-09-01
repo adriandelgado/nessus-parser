@@ -1,0 +1,15 @@
+[package]
+name = "nessus-parser"
+version = "0.1.0"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+description = "A parser for `.nessus` (v2) XML reports"
+repository = "https://github.com/adriandelgado/nessus-parser"
+authors = ["Adrián J. Delgado <rust@adrianjdelgado.com>"]
+keywords = ["nessus", "tenable"]
+categories = ["security", "parser-implementations"]
+rust-version = "1.89"
+
+[dependencies]
+jiff = { version = "0.2.15", default-features = false, features = ["std"] }
+roxmltree = "0.20.0"
