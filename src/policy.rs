@@ -1,7 +1,4 @@
-use std::{
-    borrow::Cow,
-    collections::{BTreeSet, HashMap},
-};
+use std::{borrow::Cow, collections::HashMap};
 
 use jiff::Timestamp;
 use roxmltree::{Node, StringStorage};
@@ -149,7 +146,7 @@ pub struct ServerPreferences<'input> {
     pub scan_end_timestamp_seconds: Option<jiff::Timestamp>,
     /// The set of all plugin IDs that were active for the scan.
     // "...;28505;28497;28507;28502;28508;..." (gigantic list)
-    pub plugin_set: BTreeSet<u32>,
+    pub plugin_set: &'input str,
     /// The name of the scan policy (e.g., "Advanced Scan").
     pub name: Cow<'input, str>,
     /// The discovery mode used for the scan (e.g., "portscan_common", "custom").
@@ -242,13 +239,8 @@ impl<'input> ServerPreferences<'input> {
                     if plugin_set.is_some() {
                         return Err(FormatError::RepeatedTag("plugin_set"));
                     }
-                    plugin_set = Some(
-                        value
-                            .trim_end_matches(';')
-                            .split(';')
-                            .map(str::parse)
-                            .collect::<Result<_, _>>()?,
-                    );
+
+                    plugin_set = Some(value.to_str()?);
                 }
                 "name" => {
                     if name_name.is_some() {
