@@ -12,6 +12,17 @@ pub enum Protocol {
     Icmp,
 }
 
+impl Protocol {
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Tcp => "tcp",
+            Self::Udp => "udp",
+            Self::Icmp => "icmp",
+        }
+    }
+}
+
 impl FromStr for Protocol {
     type Err = FormatError;
 
