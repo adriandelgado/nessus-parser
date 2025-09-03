@@ -19,8 +19,14 @@ pub enum PingOutcome {
     RepliedTcpSynPacketWithRstAck { to: u16 },
     // The remote host replied to a TCP SYN packet sent to port <u16> with a SYN,ACK packet
     RepliedTcpSynPacketWithSynAck { to: u16 },
+    // The remote host replied to a TCP SYN packet sent to port <u16> with a FIN,ACK packet
+    RepliedTcpSynPacketWithFinAck { to: u16 },
     // The remote host emitted a TCP SYN packet from port <u16> going to port <u16>
     EmittedTcpSynPacket { from: u16, to: u16 },
+    // The remote host emitted a TCP ACK packet from port <u16> going to port <u16>
+    EmittedTcpAckPacket { from: u16, to: u16 },
+    // The remote host emitted a TCP PUSH,ACK packet from port <u16> going to port <u16>
+    EmittedTcpPushAckPacket { from: u16, to: u16 },
     // The remote host replied with an ICMP unreach packet.
     IcmpUnreachPacket,
     // The remote host emited a UDP packet from port <u16> going to port <u16>
@@ -42,12 +48,17 @@ impl PingOutcome {
             "The remote host is up\nThe remote host replied to a TCP SYN packet sent to port ";
         const WITH_RST_ACK_SUFFIX: &str = " with a RST,ACK packet";
         const WITH_SYN_ACK_SUFFIX: &str = " with a SYN,ACK packet";
+        const WITH_FIN_ACK_SUFFIX: &str = " with a FIN,ACK packet";
         const ICMP_UNREACH_PACKET_RESPONSE_TO_TCP_SYN_PACKET_PREFIX: &str = "The remote host is up\nThe remote host replied with an ICMP unreach packet sent in response to a TCP SYN packet sent to port ";
         const EMITTED_UDP_PACKET_PREFIX: &str =
             "The remote host is up\nThe remote host emited a UDP packet from port ";
         const EMITTED_PACKET_MIDDLE: &str = "going to port ";
         const EMITTED_TCP_SYN_PACKET_PREFIX: &str =
             "The remote host is up\nThe remote host emitted a TCP SYN packet from port ";
+        const EMITTED_TCP_ACK_PACKET_PREFIX: &str =
+            "The remote host is up\nThe remote host emitted a TCP ACK packet from port ";
+        const EMITTED_TCP_PUSH_ACK_PACKET_PREFIX: &str =
+            "The remote host is up\nThe remote host emitted a TCP PUSH,ACK packet from port ";
         const DEAD_HOST_NEEDLE: &str = ") is considered as dead - not scanning\nThe remote host (";
         const FAILED_TO_REPLY_ARP_SUFFIX: &str =
             ") is on the local network and failed to reply to an ARP who-is query.";
@@ -99,6 +110,8 @@ impl PingOutcome {
                         Ok(Self::RepliedTcpSynPacketWithRstAck { to: port.parse()? })
                     } else if let Some(port) = port_and_suffix.strip_suffix(WITH_SYN_ACK_SUFFIX) {
                         Ok(Self::RepliedTcpSynPacketWithSynAck { to: port.parse()? })
+                    } else if let Some(port) = port_and_suffix.strip_suffix(WITH_FIN_ACK_SUFFIX) {
+                        Ok(Self::RepliedTcpSynPacketWithFinAck { to: port.parse()? })
                     } else {
                         Err(FormatError::UnexpectedPingTcpResponse(plugin_output.into()))
                     }
@@ -108,6 +121,25 @@ impl PingOutcome {
                     && let Some(to_port) = rest.strip_prefix(EMITTED_PACKET_MIDDLE)
                 {
                     Ok(Self::EmittedTcpSynPacket {
+                        from: from_port.parse()?,
+                        to: to_port.parse()?,
+                    })
+                // TODO: DRY
+                } else if let Some(from_port_and_rest) =
+                    text.strip_prefix(EMITTED_TCP_ACK_PACKET_PREFIX)
+                    && let Some((from_port, rest)) = from_port_and_rest.split_once(' ')
+                    && let Some(to_port) = rest.strip_prefix(EMITTED_PACKET_MIDDLE)
+                {
+                    Ok(Self::EmittedTcpAckPacket {
+                        from: from_port.parse()?,
+                        to: to_port.parse()?,
+                    })
+                } else if let Some(from_port_and_rest) =
+                    text.strip_prefix(EMITTED_TCP_PUSH_ACK_PACKET_PREFIX)
+                    && let Some((from_port, rest)) = from_port_and_rest.split_once(' ')
+                    && let Some(to_port) = rest.strip_prefix(EMITTED_PACKET_MIDDLE)
+                {
+                    Ok(Self::EmittedTcpAckPacket {
                         from: from_port.parse()?,
                         to: to_port.parse()?,
                     })

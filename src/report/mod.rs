@@ -121,7 +121,7 @@ impl<'input> Host<'input> {
                             }
                             scanner_ip = Some(parse_scanner_ip(plugin_output)?);
                         }
-                        // plugins that don't verify ports
+                        // ignore plugins that don't verify ports
                         10736 | 11111 | 14272 | 14274 => {}
                         _ => {
                             if item.port != 0 && item.plugin_type != PluginType::Local {
